@@ -133,8 +133,8 @@ const ClearanceOverview = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusStyle(r.status)}`}>
-                      {r.status.replace('_', ' ')}
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusStyle(r.status || 'unknown')}`}>
+                      {(r.status || 'unknown').replace('_', ' ')}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-500">

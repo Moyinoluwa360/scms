@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { updatePassword } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../lib/firebase';
+import { Camera } from 'lucide-react';
 
 const Profile = () => {
   const { user, userProfile, setUserProfile } = useAuthStore();
@@ -23,6 +26,7 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [phone, setPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -73,6 +77,35 @@ const Profile = () => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `profiles/${user.uid}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        profile_photo_url: downloadURL
+      });
+
+      setUserProfile({ ...userProfile, profile_photo_url: downloadURL });
+      toast.success('Profile photo updated');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to upload image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <MainLayout title="Profile">
@@ -92,14 +125,23 @@ const Profile = () => {
           <div className="px-8 pb-8">
             <div className="relative -mt-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-white shadow-lg bg-slate-50 flex items-center justify-center">
+                <div className="relative group">
+                  <div className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-white shadow-lg bg-slate-50 flex items-center justify-center relative">
                     <img 
                       src={userProfile?.profile_photo_url || `https://ui-avatars.com/api/?name=${userProfile?.full_name}&background=2563EB&color=fff`} 
                       alt="Profile" 
                       className="w-full h-full object-cover"
                     />
+                    {isUploading && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-white" />
+                      </div>
+                    )}
                   </div>
+                  <label className="absolute bottom-2 right-2 p-2 bg-white rounded-xl shadow-lg border border-slate-100 cursor-pointer hover:scale-110 active:scale-95 transition-all group-hover:bg-primary group-hover:text-white">
+                    <Camera className="w-4 h-4" />
+                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
+                  </label>
                 </div>
                 <div className="text-center sm:text-left mb-2">
                   <h2 className="text-2xl font-bold text-slate-900">{userProfile?.full_name}</h2>

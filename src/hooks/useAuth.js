@@ -8,12 +8,20 @@ export const useAuth = () => {
   const { setUser, setUserProfile, setLoading } = useAuthStore();
 
   useEffect(() => {
+    let unsubscribeProfile = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // 1. Clean up existing profile listener if any
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       setUser(user);
       
       if (user) {
-        // Listen to user profile changes in real-time
-        const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+        // 2. Start new profile listener
+        unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
           if (doc.exists()) {
             setUserProfile(doc.data());
           } else {
@@ -24,14 +32,15 @@ export const useAuth = () => {
           console.error("Error fetching user profile:", error);
           setLoading(false);
         });
-
-        return () => unsubscribeProfile();
       } else {
         setUserProfile(null);
         setLoading(false);
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, [setUser, setUserProfile, setLoading]);
 };

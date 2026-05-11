@@ -25,9 +25,13 @@ import {
   Phone,
   Mail,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  History,
+  ChevronRight
 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
+import emailjs from '@emailjs/browser';
 
 const StudentDetail = () => {
   const { requestId } = useParams();
@@ -40,6 +44,8 @@ const StudentDetail = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [currentStep, setCurrentStep] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,6 +65,19 @@ const StudentDetail = () => {
           
           setStudent(userSnap.data());
           setDetails(detailSnap.data());
+
+          // Fetch current department's step
+          if (userProfile?.department) {
+            const stepsQ = query(
+              collection(db, `clearance_requests/${requestId}/clearance_steps`),
+              where('department', '==', userProfile.department),
+              where('status', '==', 'pending')
+            );
+            const stepsSnap = await getDocs(stepsQ);
+            if (!stepsSnap.empty) {
+              setCurrentStep({ id: stepsSnap.docs[0].id, ...stepsSnap.docs[0].data() });
+            }
+          }
         }
       } catch (error) {
         console.error(error);
@@ -76,10 +95,11 @@ const StudentDetail = () => {
     const dept = userProfile.department;
     
     try {
-      // 1. Find the step for this staff's department
+      // 1. Find the PENDING step for this staff's department
       const stepsQ = query(
         collection(db, `clearance_requests/${requestId}/clearance_steps`),
-        where('department', '==', dept)
+        where('department', '==', dept),
+        where('status', '==', 'pending')
       );
       const stepsSnap = await getDocs(stepsQ);
       
@@ -100,18 +120,34 @@ const StudentDetail = () => {
       });
 
       // 2. Unlock next step
-      const nextOrder = stepData.step_order + 1;
+      const nextOrder = Number(stepData.step_order) + 1;
+      console.log(`Attempting to unlock step order: ${nextOrder} for request: ${requestId}`);
+
       if (nextOrder <= 8) {
         const stepsQ = query(
           collection(db, `clearance_requests/${requestId}/clearance_steps`),
           where('step_order', '==', nextOrder)
         );
         const stepsSnap = await getDocs(stepsQ);
+        
         if (!stepsSnap.empty) {
-          batch.update(stepsSnap.docs[0].ref, { status: 'pending' });
+          const nextStepRef = stepsSnap.docs[0].ref;
+          const nextStepData = stepsSnap.docs[0].data();
+          console.log("Found next step to unlock:", nextStepData.department);
+          
+          batch.update(nextStepRef, { 
+            status: 'pending',
+            unlocked_at: serverTimestamp() 
+          });
+        } else {
+          console.warn(`CRITICAL: Step with order ${nextOrder} not found for request ${requestId}`);
+          // Fallback: search all steps for this request to see what's wrong
+          const allStepsSnap = await getDocs(collection(db, `clearance_requests/${requestId}/clearance_steps`));
+          console.log("Available step orders in this request:", allStepsSnap.docs.map(d => d.data().step_order));
         }
       } else {
         // Step 8 cleared - overall completion
+        console.log("Final step cleared. Marking request as completed.");
         batch.update(doc(db, 'clearance_requests', requestId), {
           overall_status: 'completed',
           completed_at: serverTimestamp()
@@ -142,6 +178,27 @@ const StudentDetail = () => {
       });
 
       await batch.commit();
+
+      // 5. Send Email Notification
+      if (student?.email) {
+        try {
+          await emailjs.send(
+          import.meta.env.VITE_EMAILJS_SERVICE_ID,
+          import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
+          {
+            user_name: student.full_name,
+            user_email: student.email,
+            status: 'APPROVED',
+            unit_name: dept.replace('_', ' ').toUpperCase(),
+            remarks: 'No further issues reported.'
+          },
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+        );
+        } catch (e) {
+          console.error("Email notification failed:", e);
+        }
+      }
+
       toast.success('Student cleared successfully!');
       navigate('/staff/queue');
     } catch (error) {
@@ -165,7 +222,8 @@ const StudentDetail = () => {
     try {
       const stepsQ = query(
         collection(db, `clearance_requests/${requestId}/clearance_steps`),
-        where('department', '==', dept)
+        where('department', '==', dept),
+        where('status', '==', 'pending')
       );
       const stepsSnap = await getDocs(stepsQ);
       
@@ -175,9 +233,20 @@ const StudentDetail = () => {
       }
 
       const stepRef = stepsSnap.docs[0].ref;
+      const stepData = stepsSnap.docs[0].data();
+      
+      const newRejection = {
+        reason: rejectionReason,
+        rejected_at: new Date().toISOString(),
+        rejected_by_name: userProfile.full_name,
+        rejected_by_id: user.uid
+      };
+
       batch.update(stepRef, {
         status: 'rejected',
-        rejection_note: rejectionReason
+        rejection_note: rejectionReason, // For backward compatibility
+        rejection_history: stepData.rejection_history ? [...stepData.rejection_history, newRejection] : [newRejection],
+        is_re_review: false // Reset re-review flag on new rejection
       });
 
       // Notification
@@ -204,6 +273,27 @@ const StudentDetail = () => {
       });
 
       await batch.commit();
+
+      // Email Notification
+      if (student?.email) {
+        try {
+          await emailjs.send(
+          import.meta.env.VITE_EMAILJS_SERVICE_ID,
+          import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
+          {
+            user_name: student.full_name,
+            user_email: student.email,
+            status: 'REJECTED',
+            unit_name: dept.replace('_', ' ').toUpperCase(),
+            remarks: rejectionReason
+          },
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+        );
+        } catch (e) {
+          console.error("Email notification failed:", e);
+        }
+      }
+
       toast.success('Clearance rejected');
       navigate('/staff/queue');
     } catch (error) {
@@ -233,21 +323,80 @@ const StudentDetail = () => {
           </button>
           
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setShowRejectModal(true)}
-              className="px-6 py-2 border border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-all flex items-center"
-            >
-              <XCircle className="w-4 h-4 mr-2" /> Reject
-            </button>
-            <button 
-              onClick={handleClear}
-              disabled={actionLoading}
-              className="px-8 py-2 bg-green-500 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all flex items-center disabled:opacity-50"
-            >
-              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-              Clear Student
-            </button>
+            {currentStep?.status !== 'cleared' && (
+              <>
+                <button 
+                  onClick={() => setShowRejectModal(true)}
+                  className="px-6 py-2 border border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-all flex items-center"
+                >
+                  <XCircle className="w-4 h-4 mr-2" /> Reject
+                </button>
+                <button 
+                  onClick={handleClear}
+                  disabled={actionLoading}
+                  className="px-8 py-2 bg-green-500 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all flex items-center disabled:opacity-50"
+                >
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                  Clear Student
+                </button>
+              </>
+            )}
+            {currentStep?.status === 'cleared' && (
+              <div className="px-6 py-2 bg-green-50 text-green-700 font-bold rounded-xl border border-green-100 flex items-center">
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Already Cleared
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Re-review and History Banners */}
+        <div className="space-y-4">
+          {currentStep?.is_re_review && (
+            <div className="bg-primary/5 border border-primary/20 p-6 rounded-3xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-slate-900 tracking-tight">Re-review Requested</h4>
+                  <p className="text-slate-600 text-sm mt-1 font-medium">The student has addressed the previous issues and requested a follow-up review.</p>
+                  <div className="mt-4 p-4 bg-white rounded-2xl border border-primary/10 italic text-slate-700 text-sm">
+                    "{currentStep.re_review_note}"
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentStep?.rejection_history?.length > 0 && (
+            <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl">
+              <button 
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <History className="w-5 h-5 text-slate-400" />
+                  <span className="font-bold text-slate-900">Previous Rejection History ({currentStep.rejection_history.length})</span>
+                </div>
+                <ChevronRight className={cn("w-5 h-5 text-slate-400 transition-transform", showHistory && "rotate-90")} />
+              </button>
+              
+              {showHistory && (
+                <div className="mt-6 space-y-4">
+                  {currentStep.rejection_history.map((rej, idx) => (
+                    <div key={idx} className="p-4 bg-white rounded-2xl border border-slate-100 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Rejected Attempt #{idx + 1}</span>
+                        <span className="text-[10px] font-bold text-slate-400">{new Date(rej.rejected_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">Reason: <span className="font-medium text-slate-600">{rej.reason}</span></p>
+                      <p className="text-[10px] text-slate-400">By: {rej.rejected_by_name}</p>
+                    </div>
+                  )).reverse()}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

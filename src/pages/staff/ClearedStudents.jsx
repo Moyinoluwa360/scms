@@ -97,7 +97,7 @@ const ClearedStudents = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr key={`${item.requestId}_${item.id}`} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">

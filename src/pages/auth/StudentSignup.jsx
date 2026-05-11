@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
+import emailjs from '@emailjs/browser';
 import { FACULTIES_AND_DEPARTMENTS } from '../../lib/constants';
 import {
   Loader2,
@@ -15,7 +16,8 @@ import {
   CheckCircle2,
   User,
   BookOpen,
-  Info
+  Info,
+  Mail
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -29,8 +31,8 @@ const studentSchema = z.object({
   // Step 2
   faculty: z.string().min(1, 'Faculty is required'),
   department: z.string().min(1, 'Department is required'),
-  level: z.string().min(1, 'Level is required'),
-  session: z.string().min(1, 'Session is required'),
+  level: z.string().optional(),
+  session: z.string().optional(),
   mode_of_entry: z.string().min(1, 'Mode of entry is required'),
   year_of_admission: z.string().min(4, 'Invalid year'),
   // Step 3
@@ -43,6 +45,7 @@ const studentSchema = z.object({
   next_of_kin_name: z.string().min(3, 'Next of kin name is too short'),
   next_of_kin_phone: z.string().min(10, 'Invalid phone number'),
   next_of_kin_relationship: z.string().min(1, 'Relationship is required'),
+  confirm_correct: z.boolean().refine(val => val === true, 'You must confirm that your details are correct'),
 }).refine((data) => data.password === data.confirm_password, {
   message: "Passwords don't match",
   path: ["confirm_password"],
@@ -65,24 +68,102 @@ const StudentSignup = () => {
     mode: 'onChange',
   });
 
+  const [verificationCode, setVerificationCode] = useState('');
+  const [sentCode, setSentCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+
   const [facultiesData, setFacultiesData] = useState([]);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const [currentSession, setCurrentSession] = useState('2025/2026');
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'faculties'), (snap) => {
+    const unsubFac = onSnapshot(collection(db, 'faculties'), (snap) => {
       setFacultiesData(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    return () => unsub();
+
+    const unsubSettings = onSnapshot(doc(db, 'system_config', 'settings'), (snap) => {
+      if (snap.exists()) {
+        setCurrentSession(snap.data().current_session || '2025/2026');
+      }
+    });
+
+    return () => {
+      unsubFac();
+      unsubSettings();
+    };
   }, []);
 
   const currentFaculty = watch('faculty');
+  const currentDept = watch('department');
   const departmentsInFaculty = currentFaculty ? facultiesData.find(f => f.name === currentFaculty)?.departments || [] : [];
+
+  // Automated Level Logic
+  const calculatedLevel = currentDept ? (() => {
+    const d = currentDept.toUpperCase();
+    const isFiveYear = d.includes('ENGINEERING') || 
+                       d.includes('LAW') || 
+                       d.includes('NURSING') || 
+                       d.includes('PHYSIOTHERAPY') || 
+                       d.includes('MEDICINE') || 
+                       d.includes('SURGERY') ||
+                       d.includes('ARCHITECTURE');
+    return isFiveYear ? '500' : '400';
+  })() : '';
 
   const nextStep = async () => {
     let fieldsToValidate = [];
-    if (step === 1) fieldsToValidate = ['full_name', 'matric_number', 'email', 'password', 'confirm_password'];
-    if (step === 2) fieldsToValidate = ['faculty', 'department', 'level', 'session', 'mode_of_entry', 'year_of_admission'];
-    if (step === 3) fieldsToValidate = ['date_of_birth', 'gender', 'phone_number', 'home_address', 'state_of_origin', 'nationality', 'next_of_kin_name', 'next_of_kin_phone', 'next_of_kin_relationship'];
+    if (step === 1) {
+      fieldsToValidate = ['full_name', 'matric_number', 'email', 'password', 'confirm_password'];
+      const isValid = await trigger(fieldsToValidate);
+      if (isValid) {
+        // Generate and Send Code
+        setIsLoading(true);
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        setSentCode(code);
+        
+        try {
+          // Send via EmailJS
+          await emailjs.send(
+            import.meta.env.VITE_EMAILJS_SERVICE_ID,
+            import.meta.env.VITE_EMAILJS_VERIFICATION_TEMPLATE_ID,
+            {
+              user_name: watch('full_name'),
+              user_email: watch('email'),
+              verification_code: code
+            },
+            import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+          );
+          
+          toast.success('Verification code sent to your email');
+          setStep(2);
+        } catch (error) {
+          console.error(error);
+          toast.error('Failed to send verification email. Please check your credentials.');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+      return;
+    }
+
+    if (step === 2) {
+      setIsLoading(true);
+      // Artificial delay to simulate "Verifying"
+      setTimeout(async () => {
+        if (verificationCode === sentCode) {
+          toast.success('Email verified successfully!');
+          setStep(3);
+        } else {
+          toast.error('Invalid verification code');
+        }
+        setIsLoading(false);
+      }, 5000);
+      return;
+    }
+
+    if (step === 3) fieldsToValidate = ['faculty', 'department', 'mode_of_entry', 'year_of_admission'];
+    if (step === 4) fieldsToValidate = ['date_of_birth', 'gender', 'phone_number', 'home_address', 'state_of_origin', 'nationality', 'next_of_kin_name', 'next_of_kin_phone', 'next_of_kin_relationship'];
+    if (step === 5) fieldsToValidate = ['confirm_correct'];
 
     const isValid = await trigger(fieldsToValidate);
     if (isValid) setStep(step + 1);
@@ -113,8 +194,8 @@ const StudentSignup = () => {
         matric_number: data.matric_number,
         faculty: data.faculty,
         department: data.department,
-        level: data.level,
-        session: data.session,
+        level: calculatedLevel,
+        session: currentSession,
         mode_of_entry: data.mode_of_entry,
         year_of_admission: data.year_of_admission,
         home_address: data.home_address,
@@ -175,6 +256,31 @@ const StudentSignup = () => {
         );
       case 2:
         return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Verify your Email</h3>
+              <p className="text-sm text-slate-500 mt-1">We've sent a 6-digit code to <span className="font-semibold text-slate-900">{watch('email')}</span></p>
+            </div>
+            <div className="max-w-[240px] mx-auto">
+              <input 
+                type="text" 
+                maxLength={6}
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000" 
+                className="w-full text-center text-3xl font-black tracking-[0.5em] py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-primary outline-none transition-all placeholder:text-slate-200" 
+              />
+            </div>
+            <p className="text-center text-xs text-slate-400">
+              Didn't receive the code? <button type="button" onClick={() => setStep(1)} className="text-primary font-bold hover:underline">Change email</button>
+            </p>
+          </div>
+        );
+      case 3:
+        return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
@@ -202,23 +308,6 @@ const StudentSignup = () => {
                 {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department.message}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Level</label>
-                <select {...register('level')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white">
-                  <option value="">Select Level</option>
-                  <option value="100">100</option>
-                  <option value="200">200</option>
-                  <option value="300">300</option>
-                  <option value="400">400</option>
-                  <option value="500">500</option>
-                </select>
-                {errors.level && <p className="text-red-500 text-xs mt-1">{errors.level.message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Current Session</label>
-                <input {...register('session')} placeholder="e.g. 2023/2024" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                {errors.session && <p className="text-red-500 text-xs mt-1">{errors.session.message}</p>}
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Mode of Entry</label>
                 <select {...register('mode_of_entry')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white">
                   <option value="">Select Mode</option>
@@ -233,9 +322,14 @@ const StudentSignup = () => {
                 {errors.year_of_admission && <p className="text-red-500 text-xs mt-1">{errors.year_of_admission.message}</p>}
               </div>
             </div>
+            <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+              <p className="text-xs text-slate-600 font-medium">
+                <span className="font-bold text-primary">Note:</span> Your level is automatically set to <span className="font-bold text-slate-900">{calculatedLevel || '...'}</span> based on your department for the <span className="font-bold text-slate-900">{currentSession}</span> academic session.
+              </p>
+            </div>
           </div>
         );
-      case 3:
+      case 4:
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="grid grid-cols-2 gap-4">
@@ -293,7 +387,7 @@ const StudentSignup = () => {
             </div>
           </div>
         );
-      case 4:
+      case 5:
         const values = getValues();
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -317,7 +411,11 @@ const StudentSignup = () => {
                 </div>
                 <div>
                   <p className="text-slate-500">Level</p>
-                  <p className="font-medium text-slate-900">{values.level}</p>
+                  <p className="font-medium text-slate-900">{calculatedLevel}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Session</p>
+                  <p className="font-medium text-slate-900">{currentSession}</p>
                 </div>
                 <div>
                   <p className="text-slate-500">Email</p>
@@ -327,6 +425,24 @@ const StudentSignup = () => {
                   <p className="text-slate-500">Phone</p>
                   <p className="font-medium text-slate-900">{values.phone_number}</p>
                 </div>
+                <div>
+                  <p className="text-slate-500">Nationality</p>
+                  <p className="font-medium text-slate-900">{values.nationality}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+              <input 
+                type="checkbox" 
+                {...register('confirm_correct')} 
+                className="mt-1 w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary" 
+              />
+              <div className="flex-1">
+                <p className="text-[11px] font-bold text-amber-900 leading-normal">
+                  I confirm that all the information provided above is correct and matches my official records.
+                </p>
+                {errors.confirm_correct && <p className="text-red-500 text-[10px] mt-1">{errors.confirm_correct.message}</p>}
               </div>
             </div>
           </div>
@@ -336,8 +452,8 @@ const StudentSignup = () => {
     }
   };
 
-  const stepTitles = ["Account", "Academic", "Personal", "Review"];
-  const stepIcons = [User, BookOpen, Info, CheckCircle2];
+  const stepTitles = ["Account", "Verify", "Academic", "Personal", "Review"];
+  const stepIcons = [User, Mail, BookOpen, Info, CheckCircle2];
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -371,7 +487,7 @@ const StudentSignup = () => {
             <div className="absolute top-[20px] left-[40px] right-[40px] h-[2px] bg-slate-100 -z-0">
               <div
                 className="h-full bg-primary transition-all duration-500"
-                style={{ width: `${(step - 1) * 33.33}%` }}
+                style={{ width: `${(step - 1) * 25}%` }}
               />
             </div>
           </div>
@@ -380,7 +496,7 @@ const StudentSignup = () => {
         <div className="p-8">
           <div className="mb-8">
             <h2 className="text-xl font-bold text-slate-900">Student Registration</h2>
-            <p className="text-slate-500 text-sm">Step {step} of 4: {stepTitles[step - 1]}</p>
+            <p className="text-slate-500 text-sm">Step {step} of 5: {stepTitles[step - 1]}</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -399,13 +515,21 @@ const StudentSignup = () => {
                 <Link to="/login" className="text-slate-500 text-sm hover:text-primary">Already have an account?</Link>
               )}
 
-              {step < 4 ? (
+              {step < 5 ? (
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="flex items-center px-8 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95"
+                  disabled={isLoading}
+                  className="flex items-center px-8 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Next <ArrowRight className="w-4 h-4 ml-2" />
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {step === 2 ? 'Verifying...' : 'Processing...'}
+                    </>
+                  ) : (
+                    <>Next <ArrowRight className="w-4 h-4 ml-2" /></>
+                  )}
                 </button>
               ) : (
                 <button

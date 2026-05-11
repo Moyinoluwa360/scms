@@ -51,7 +51,14 @@ const PendingApproval = () => {
           </button>
         </div>
 
-        <p className="mt-8 text-[10px] text-slate-300 uppercase tracking-widest font-bold">ClearanceIQ Student Management System</p>
+        <div className="mt-8 flex flex-col items-center opacity-40 grayscale">
+          <img 
+            src="https://run.edu.ng/wp-content/uploads/2024/09/cropped-colored-logo-300x83.png" 
+            alt="Redeemer's University" 
+            className="h-6 w-auto object-contain"
+          />
+          <p className="mt-2 text-[8px] text-slate-400 uppercase tracking-widest font-bold">Clearance System</p>
+        </div>
       </div>
     </div>
   );

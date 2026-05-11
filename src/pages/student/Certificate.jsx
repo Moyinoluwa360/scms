@@ -94,7 +94,11 @@ const Certificate = () => {
                 </div>
 
                 <h1 className="text-sm font-bold text-slate-400 uppercase tracking-[0.3em] mb-4">Official Clearance Certificate</h1>
-                <h2 className="text-4xl font-serif font-black text-slate-900 mb-8">Redeemer's University</h2>
+                <img 
+                  src="https://run.edu.ng/wp-content/uploads/2024/09/cropped-colored-logo-300x83.png" 
+                  alt="Redeemer's University" 
+                  className="h-20 w-auto object-contain mb-8"
+                />
                 
                 <div className="w-24 h-1 bg-primary mb-12" />
 
@@ -106,7 +110,7 @@ const Certificate = () => {
 
                 <div className="max-w-xl text-slate-700 leading-relaxed mb-16 text-lg">
                   Has successfully completed the mandatory graduation clearance process through the 
-                  <span className="font-bold text-slate-900"> ClearanceIQ Portal</span>. 
+                  <span className="font-bold text-slate-900"> Redeemer's University Clearance Portal</span>. 
                   All departmental requirements, library obligations, and administrative duties have been verified and settled as of the date specified below.
                 </div>
 

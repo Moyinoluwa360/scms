@@ -114,87 +114,108 @@ const AdminDashboard = () => {
   };
 
   return (
-    <MainLayout title="Admin Overview">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        {[
-          { label: 'Total Students', value: stats.totalStudents, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
-          { label: 'Active Staff', value: stats.totalStaff, icon: ShieldCheck, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-          { label: 'Fully Cleared', value: stats.fullyCleared, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
-          { label: 'In Progress', value: stats.inProgress, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
-          { label: 'Pending Approval', value: stats.pendingApproval, icon: UserPlus, color: 'text-red-500', bg: 'bg-red-50' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-            <div className={cn("p-3 w-12 h-12 rounded-xl flex items-center justify-center mb-4", stat.bg)}>
-              <stat.icon className={cn("w-6 h-6", stat.color)} />
-            </div>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">{stat.label}</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* System Activity */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-slate-900 flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-primary" /> Clearance Pipeline Activity
-            </h3>
-            <button
-              onClick={handleSeedData}
-              disabled={isSeeding}
-              className="text-xs font-bold text-primary flex items-center hover:underline disabled:opacity-50"
-            >
-              {isSeeding ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Database className="w-3 h-3 mr-1" />}
-              Seed Test Staff
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {[
-              "department", "faculty_office", "library", "academic_affairs",
-              "security", "dsss", "bursary", "registry"
-            ].map((dept, i) => (
-              <div key={dept} className="space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="capitalize text-slate-700">{dept.replace('_', ' ')}</span>
-                  <span className="text-slate-400">Step {i + 1}</span>
-                </div>
-                <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary/40 rounded-full transition-all duration-1000"
-                    style={{ width: `${Math.random() * 60 + 20}%` }}
-                  />
-                </div>
+    <MainLayout title="Administrative Dashboard">
+      <div className="space-y-8">
+        {/* Statistics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Enrolled Students', value: stats.totalStudents, icon: Users, color: 'text-slate-600' },
+            { label: 'Active Departmental Units', value: stats.totalStaff, icon: ShieldCheck, color: 'text-slate-600' },
+            { label: 'Clearance Completions', value: stats.fullyCleared, icon: CheckCircle2, color: 'text-green-600' },
+            { label: 'Pending Staff Reviews', value: stats.pendingApproval, icon: UserPlus, color: 'text-amber-600' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm ring-1 ring-slate-100/50">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">{stat.label}</p>
+                <stat.icon className={cn("w-4 h-4", stat.color)} />
               </div>
-            ))}
-          </div>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+                {stat.label.includes('Pending') && stat.value > 0 && (
+                  <span className="px-1.5 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded ring-1 ring-red-100">Action Required</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Quick Links */}
-        <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl">
-          <h3 className="font-bold mb-6">Quick Actions</h3>
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('/admin/staff')}
-              className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-semibold transition-all text-left px-6 flex items-center justify-between"
-            >
-              Manage Staff Approvals
-              <span className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px]">{stats.pendingApproval}</span>
-            </button>
-            <button
-              onClick={() => navigate('/admin/students')}
-              className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-semibold transition-all text-left px-6"
-            >
-              View Student Records
-            </button>
-            <button className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-semibold transition-all text-left px-6">
-              Export Audit Logs
-            </button>
-            <button className="w-full py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all mt-6 text-center">
-              Broadcast Notification
-            </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Activity Area */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center">
+                  <Activity className="w-4 h-4 mr-2 text-primary" /> Global Clearance Metrics
+                </h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6">
+                  {[
+                    "Academic Dept", "Faculty Office", "Library", "Student Affairs",
+                    "Security", "DSSS", "Bursary", "Registry"
+                  ].map((dept, i) => (
+                    <div key={dept} className="group">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[11px] font-bold text-slate-600 group-hover:text-primary transition-colors">{dept}</span>
+                        <span className="text-[10px] font-mono font-bold text-slate-400">{Math.floor(Math.random() * 40 + 60)}% Load</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-slate-900 rounded-full transition-all duration-1000"
+                          style={{ width: `${Math.random() * 60 + 20}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions Panel */}
+          <div className="space-y-4">
+            <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-900/10">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Management Tasks</p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate('/admin/staff')}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all text-left px-4 flex items-center justify-between group"
+                >
+                  <span className="group-hover:translate-x-1 transition-transform">Staff Registration Queue</span>
+                  {stats.pendingApproval > 0 && (
+                    <span className="px-2 py-0.5 bg-red-500 text-white rounded-md text-[9px] font-black">{stats.pendingApproval}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => navigate('/admin/students')}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all text-left px-4 flex items-center gap-2 group"
+                >
+                  <Users className="w-3 h-3 text-slate-500" />
+                  <span className="group-hover:translate-x-1 transition-transform">Enrolled Student Database</span>
+                </button>
+                <button
+                  onClick={() => navigate('/admin/system')}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all text-left px-4 flex items-center gap-2 group"
+                >
+                  <Database className="w-3 h-3 text-slate-500" />
+                  <span className="group-hover:translate-x-1 transition-transform">System Structure Config</span>
+                </button>
+                
+                <div className="pt-4 mt-4 border-t border-white/5">
+                  <button className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-center">
+                    PUBLISH SYSTEM ANNOUNCEMENT
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm ring-1 ring-slate-100/50">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Server Status</p>
+              <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Auth & Database Synchronized
+              </div>
+            </div>
           </div>
         </div>
       </div>

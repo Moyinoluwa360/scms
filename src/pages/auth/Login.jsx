@@ -33,7 +33,21 @@ const Login = () => {
       // Redirection logic is handled by App.jsx based on user role
     } catch (error) {
       console.error(error);
-      toast.error('Invalid email or password');
+      let message = 'Invalid email or password';
+      
+      if (error.code === 'auth/user-not-found') {
+        message = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        message = 'Incorrect password';
+      } else if (error.code === 'auth/user-disabled') {
+        message = 'This account has been disabled';
+      } else if (error.code === 'auth/invalid-credential') {
+        message = 'Invalid login credentials';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many failed attempts. Please try again later.';
+      }
+      
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -43,11 +57,14 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4">
-            <img src="/logo.svg" alt="ClearanceIQ" className="w-10 h-10" onError={(e) => e.target.src = 'https://ui-avatars.com/api/?name=CQ&background=2563EB&color=fff'} />
+          <div className="flex flex-col items-center mb-6">
+            <img 
+              src="https://run.edu.ng/wp-content/uploads/2024/09/cropped-colored-logo-300x83.png" 
+              alt="Redeemer's University" 
+              className="h-16 w-auto object-contain mb-2"
+            />
+            <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px]">Clearance Portal</p>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 font-sans">ClearanceIQ</h1>
-          <p className="text-slate-500 mt-1">Student Clearance Management System</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

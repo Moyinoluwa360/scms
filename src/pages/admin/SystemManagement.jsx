@@ -22,10 +22,12 @@ import {
   ChevronRight,
   AlertCircle,
   Loader2,
-  Check
+  Check,
+  Smartphone
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 const SystemManagement = () => {
   const [faculties, setFaculties] = useState([]);
@@ -34,6 +36,8 @@ const SystemManagement = () => {
   const [activeTab, setActiveTab] = useState('faculties');
   const [searchTerm, setSearchTerm] = useState('');
   const [syncStatus, setSyncStatus] = useState({ required: false, lastSync: null });
+  const [currentSession, setCurrentSession] = useState('2025/2026');
+  const [isSavingSession, setIsSavingSession] = useState(false);
 
   // Form states
   const [newFacultyName, setNewFacultyName] = useState('');
@@ -64,14 +68,20 @@ const SystemManagement = () => {
             lastSync: lastSync.getTime() === 0 ? null : lastSync
           });
         }
-      },
-      error: (err) => console.error("Sync listener error:", err)
+      }
+    });
+
+    const unsubSettings = onSnapshot(doc(db, 'system_config', 'settings'), (snap) => {
+      if (snap.exists()) {
+        setCurrentSession(snap.data().current_session || '2025/2026');
+      }
     });
 
     return () => {
       unsubFaculties();
       unsubUnits();
       unsubConfig();
+      unsubSettings();
     };
   }, []);
 
@@ -135,7 +145,6 @@ const SystemManagement = () => {
       toast.error('Error deleting faculty');
     }
   };
-
   const handleAddUnit = async (e) => {
     e.preventDefault();
     if (!newUnitId || !newUnitName) return;
@@ -162,6 +171,22 @@ const SystemManagement = () => {
       toast.success('Unit removed');
     } catch (error) {
       toast.error('Error removing unit');
+    }
+  };
+
+  const handleUpdateSession = async (e) => {
+    e.preventDefault();
+    setIsSavingSession(true);
+    try {
+      await setDoc(doc(db, 'system_config', 'settings'), {
+        current_session: currentSession,
+        updated_at: serverTimestamp()
+      }, { merge: true });
+      toast.success('University session updated');
+    } catch (error) {
+      toast.error('Error updating session');
+    } finally {
+      setIsSavingSession(false);
     }
   };
 
@@ -244,9 +269,16 @@ const SystemManagement = () => {
           >
             University Units
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+          >
+            Global Settings
+          </button>
         </div>
 
-        {activeTab === 'faculties' ? (
+        {activeTab === 'faculties' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left: Add Faculty */}
             <div className="lg:col-span-1 space-y-6">
@@ -343,7 +375,9 @@ const SystemManagement = () => {
               ))}
             </div>
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'units' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Add Unit */}
             <div className="lg:col-span-1">
@@ -412,6 +446,35 @@ const SystemManagement = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="max-w-md mx-auto">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm ring-1 ring-slate-200/50">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">University Lifecycle</h3>
+              <form onSubmit={handleUpdateSession} className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Active Academic Session</label>
+                  <input
+                    type="text"
+                    value={currentSession}
+                    onChange={(e) => setCurrentSession(e.target.value)}
+                    placeholder="e.g. 2025/2026"
+                    className="w-full px-6 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-primary/20 outline-none transition-all font-bold text-slate-900"
+                  />
+                  <p className="mt-2 text-[10px] text-slate-400 font-medium leading-relaxed">
+                    This session will be automatically assigned to all new student registrations.
+                  </p>
+                </div>
+                <button
+                  disabled={isSavingSession}
+                  className="w-full py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isSavingSession ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Apply Session Update'}
+                </button>
+              </form>
             </div>
           </div>
         )}

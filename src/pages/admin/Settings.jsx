@@ -105,7 +105,7 @@ const Settings = () => {
                 {[
                   { id: 'new_student', label: 'New Student in Queue', desc: 'Get alerted when a student requests clearance.' },
                   { id: 'rejections', label: 'Rejection Alerts', desc: 'Notify me when another department rejects a student I cleared.' },
-                  { id: 'system', label: 'System Updates', desc: 'Important news about the ClearanceIQ platform.' },
+                  { id: 'system', label: 'System Updates', desc: 'Important news about the University portal.' },
                 ].map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                     <div>

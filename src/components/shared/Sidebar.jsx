@@ -49,7 +49,6 @@ const Sidebar = () => {
         { label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
         { label: 'Students', icon: Users, path: '/admin/students' },
         { label: 'Staff', icon: ShieldCheck, path: '/admin/staff' },
-        { label: 'Clearance Overview', icon: FileCheck, path: '/admin/clearance' },
         { label: 'Audit Logs', icon: History, path: '/admin/logs' },
         { label: 'System Management', icon: Settings2, path: '/admin/system' },
         { label: 'Settings', icon: Settings, path: '/admin/settings' },
@@ -83,10 +82,11 @@ const Sidebar = () => {
         <div className="flex flex-col h-full">
           <div className="p-6 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">
-                C
-              </div>
-              <span className="font-bold text-slate-900 text-lg tracking-tight">ClearanceIQ</span>
+              <img 
+                src="https://run.edu.ng/wp-content/uploads/2024/09/cropped-colored-logo-300x83.png" 
+                alt="Redeemer's University" 
+                className="h-10 w-auto object-contain"
+              />
             </div>
             <button onClick={closeSidebar} className="lg:hidden p-2 text-slate-400 hover:text-slate-600 transition-colors">
               <X className="w-5 h-5" />
