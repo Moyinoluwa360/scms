@@ -33,14 +33,11 @@ const StaffDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userProfile?.department) return;
+    if (!userProfile?.unit_id) return;
 
-    const dept = userProfile.department;
-
-    // This is a collectionGroup query, it might need an index in Firebase
     const q = query(
       collectionGroup(db, 'clearance_steps'), 
-      where('department', '==', dept)
+      where('unit_id', '==', userProfile.unit_id)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

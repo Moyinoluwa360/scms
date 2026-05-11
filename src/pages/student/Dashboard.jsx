@@ -25,6 +25,7 @@ import {
   Bell
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { getUnitId } from '../../lib/units';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
@@ -36,6 +37,17 @@ const Dashboard = () => {
   const [selectedStep, setSelectedStep] = useState(null);
   const [reReviewNote, setReReviewNote] = useState('');
   const [submittingReReview, setSubmittingReReview] = useState(false);
+  const [currentSession, setCurrentSession] = useState('2024/2025');
+
+  useEffect(() => {
+    const unsubSettings = onSnapshot(doc(db, 'system_config', 'settings'), (snap) => {
+      if (snap.exists()) {
+        setCurrentSession(snap.data().current_session || '2024/2025');
+      }
+    });
+
+    return () => unsubSettings();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -92,33 +104,27 @@ const Dashboard = () => {
         initiated_at: serverTimestamp(),
       });
 
-      // 2. Initialize 8 steps
-      const depts = [
-        details.department, // Step 1 (e.g. "Nursing")
-        details.faculty,    // Step 2 (e.g. "Basic Medical Sciences")
-        "library",
-        "academic_affairs",
-        "security",
-        "dsss",
-        "bursary",
-        "registry"
+      // 2. Initialize 8 steps with Strict Unit IDs
+      const stepsConfig = [
+        { unit_id: getUnitId(details.department), order: 1, label: 'Departmental Clearance' },
+        { unit_id: getUnitId(details.faculty), order: 2, label: 'Faculty Clearance' },
+        { unit_id: 'library', order: 3, label: 'University Library' },
+        { unit_id: 'academic_affairs', order: 4, label: 'Academic Affairs' },
+        { unit_id: 'security', order: 5, label: 'Security Unit' },
+        { unit_id: 'dsss', order: 6, label: 'DSSS' },
+        { unit_id: 'bursary', order: 7, label: 'Bursary Office' },
+        { unit_id: 'registry', order: 8, label: 'University Registry' },
       ];
 
-      depts.forEach((dept, index) => {
-        // Clean the department name
-        const cleanDept = dept?.toString().trim();
+      stepsConfig.forEach((step) => {
+        // We use the unit_id as the document ID for consistency
+        const stepRef = doc(db, `clearance_requests/${requestRef.id}/clearance_steps`, step.unit_id);
         
-        // Step IDs for Firestore documents
-        const stepId = index === 0 ? "academic_dept" : index === 1 ? "faculty_office" : cleanDept;
-        const stepRef = doc(db, `clearance_requests/${requestRef.id}/clearance_steps`, stepId);
-        
-        const stepOrder = index + 1;
-        console.log(`Initializing step ${stepOrder}: ${cleanDept} (ID: ${stepId})`);
-
         batch.set(stepRef, {
-          department: cleanDept,
-          step_order: stepOrder,
-          status: index === 0 ? 'pending' : 'locked',
+          unit_id: step.unit_id,
+          step_name: step.label,
+          step_order: step.order,
+          status: step.order === 1 ? 'pending' : 'locked',
           created_at: serverTimestamp(),
         });
       });
@@ -179,7 +185,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden ring-1 ring-slate-100/50">
           <div className="p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-1">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Session: 2023/2024</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Session: {currentSession}</p>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                 {request ? "Clearance in Progress" : "Clearance Initialization Required"}
               </h2>
@@ -243,8 +249,8 @@ const Dashboard = () => {
                   <div className="flex items-start justify-between relative z-10">
                     <div>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Step {step.step_order}</p>
-                      <h4 className="font-bold text-slate-900 capitalize tracking-tight group-hover:text-primary transition-colors">
-                        {step.department.replace('_', ' ')}
+                      <h4 className="font-bold text-slate-900 tracking-tight group-hover:text-primary transition-colors">
+                        {step.step_name || (step.unit_id?.replace('_', ' ')) || 'Clearance'}
                       </h4>
                     </div>
                     <div className={cn(
@@ -338,7 +344,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Request Re-review</h3>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">{selectedStep.department.replace('_', ' ')}</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">{selectedStep.step_name || selectedStep.unit_id?.replace('_', ' ')}</p>
                 </div>
               </div>
 

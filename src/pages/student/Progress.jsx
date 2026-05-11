@@ -172,7 +172,7 @@ const Progress = () => {
                               "text-sm font-black tracking-tight capitalize",
                               step.status === 'locked' ? "text-slate-400" : "text-slate-900"
                             )}>
-                              {step.department.replace('_', ' ')}
+                               {step.step_name || step.unit_id?.replace('_', ' ') || 'Clearance Unit'}
                             </h3>
                             <span className={cn(
                               "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-[0.1em]",
@@ -251,7 +251,7 @@ const Progress = () => {
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Resolution Review</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Appeal Unit: {selectedStep.department.replace('_', ' ')}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Appeal Unit: {selectedStep.step_name || selectedStep.unit_id?.replace('_', ' ')}</p>
                 </div>
               </div>
 

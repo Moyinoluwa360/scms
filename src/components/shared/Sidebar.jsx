@@ -61,7 +61,9 @@ const Sidebar = () => {
   const navItems = getNavItems();
 
   const handleLogout = () => {
-    auth.signOut();
+    if (window.confirm('Are you sure you want to logout?')) {
+      auth.signOut();
+    }
   };
 
   return (

@@ -122,11 +122,11 @@ const Profile = () => {
         {/* Header/Cover Section */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="h-32 bg-gradient-to-r from-primary to-blue-400" />
-          <div className="px-8 pb-8">
-            <div className="relative -mt-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6">
+          <div className="px-6 sm:px-8 pb-8">
+            <div className="relative -mt-16 flex flex-col items-center sm:items-end sm:flex-row justify-between gap-6">
+              <div className="flex flex-col items-center sm:items-end sm:flex-row gap-4 sm:gap-6">
                 <div className="relative group">
-                  <div className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-white shadow-lg bg-slate-50 flex items-center justify-center relative">
+                  <div className="w-32 h-32 rounded-[2rem] overflow-hidden border-8 border-white shadow-xl bg-slate-50 flex items-center justify-center relative">
                     <img 
                       src={userProfile?.profile_photo_url || `https://ui-avatars.com/api/?name=${userProfile?.full_name}&background=2563EB&color=fff`} 
                       alt="Profile" 
@@ -138,14 +138,14 @@ const Profile = () => {
                       </div>
                     )}
                   </div>
-                  <label className="absolute bottom-2 right-2 p-2 bg-white rounded-xl shadow-lg border border-slate-100 cursor-pointer hover:scale-110 active:scale-95 transition-all group-hover:bg-primary group-hover:text-white">
+                  <label className="absolute bottom-1 right-1 p-2.5 bg-white rounded-2xl shadow-xl border border-slate-100 cursor-pointer hover:scale-110 active:scale-95 transition-all hover:bg-primary hover:text-white">
                     <Camera className="w-4 h-4" />
                     <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
                   </label>
                 </div>
-                <div className="text-center sm:text-left mb-2">
-                  <h2 className="text-2xl font-bold text-slate-900">{userProfile?.full_name}</h2>
-                  <p className="text-slate-500 font-medium">{studentDetails?.matric_number}</p>
+                <div className="text-center sm:text-left sm:pb-2">
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{userProfile?.full_name}</h2>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">{studentDetails?.matric_number}</p>
                 </div>
               </div>
             </div>

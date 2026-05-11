@@ -10,7 +10,12 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
-  serverTimestamp
+  serverTimestamp,
+  getDocs,
+  collectionGroup,
+  writeBatch,
+  query,
+  where
 } from 'firebase/firestore';
 import {
   Plus,
@@ -23,7 +28,9 @@ import {
   AlertCircle,
   Loader2,
   Check,
-  Smartphone
+  Smartphone,
+  RefreshCcw,
+  Zap
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
@@ -38,6 +45,7 @@ const SystemManagement = () => {
   const [syncStatus, setSyncStatus] = useState({ required: false, lastSync: null });
   const [currentSession, setCurrentSession] = useState('2025/2026');
   const [isSavingSession, setIsSavingSession] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
 
   // Form states
   const [newFacultyName, setNewFacultyName] = useState('');
@@ -190,6 +198,52 @@ const SystemManagement = () => {
     }
   };
 
+  const handleRepairAndSync = async () => {
+    if (!confirm("This will normalize all staff and student departments to lowercase. This is recommended to fix naming mismatches. Proceed?")) return;
+    
+    setIsRepairing(true);
+    let staffCount = 0;
+    let stepCount = 0;
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Repair Staff
+      const staffSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'department_staff')));
+      staffSnap.forEach(staffDoc => {
+        const data = staffDoc.data();
+        if (data.department) {
+          batch.update(staffDoc.ref, { department: data.department.toLowerCase().trim() });
+          staffCount++;
+        }
+      });
+
+      // 2. Repair Clearance Steps
+      const stepsSnap = await getDocs(collectionGroup(db, 'clearance_steps'));
+      stepsSnap.forEach(stepDoc => {
+        const data = stepDoc.data();
+        if (data.department) {
+          batch.update(stepDoc.ref, { department: data.department.toLowerCase().trim() });
+          stepCount++;
+        }
+      });
+
+      await batch.commit();
+      toast.success(`Repair Complete! Updated ${staffCount} staff and ${stepCount} steps.`);
+      
+      // Update sync status locally
+      await setDoc(doc(db, 'system_config', 'status'), {
+        last_sync: serverTimestamp()
+      }, { merge: true });
+
+    } catch (error) {
+      console.error(error);
+      toast.error('Error during repair: ' + error.message);
+    } finally {
+      setIsRepairing(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout title="System Management">
@@ -230,11 +284,14 @@ const SystemManagement = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {syncStatus.required && (
-              <div className="hidden lg:block bg-slate-900 text-slate-400 px-4 py-2 rounded-xl text-xs font-mono">
-                node seed-auth.cjs
-              </div>
-            )}
+            <button
+              onClick={handleRepairAndSync}
+              disabled={isRepairing}
+              className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/20 disabled:opacity-50"
+            >
+              {isRepairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+              Repair & Sync Names
+            </button>
             <button
               disabled={!syncStatus.required}
               onClick={() => {

@@ -26,26 +26,34 @@ const ClearedStudents = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (!userProfile?.department) return;
+    if (!userProfile?.unit_id) return;
 
+    // Query using the staff member's strict unit_id
     const q = query(
       collectionGroup(db, 'clearance_steps'),
-      where('department', '==', userProfile.department),
-      where('status', '==', 'cleared'),
-      orderBy('cleared_at', 'desc')
+      where('unit_id', '==', userProfile.unit_id),
+      where('status', '==', 'cleared')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => {
-        // The parent of 'clearance_steps' is the 'clearance_requests' document
-        const requestId = doc.ref.parent.parent.id;
-        return { 
-          id: doc.id, 
-          requestId, 
-          ...doc.data() 
-        };
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const promises = snapshot.docs.map(async (stepDoc) => {
+        const stepData = stepDoc.data();
+        const requestRef = stepDoc.ref.parent.parent;
+        const requestSnap = await getDoc(requestRef);
+        
+        if (requestSnap.exists()) {
+          return {
+            id: stepDoc.id,
+            requestId: requestRef.id,
+            ...stepData,
+            studentInfo: requestSnap.data()
+          };
+        }
+        return null;
       });
-      setClearedStudents(docs);
+
+      const results = await Promise.all(promises);
+      setClearedStudents(results.filter(r => r !== null));
       setLoading(false);
     }, (error) => {
       console.error("Error fetching cleared students:", error);

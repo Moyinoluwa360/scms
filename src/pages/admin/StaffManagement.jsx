@@ -15,17 +15,36 @@ import {
   CheckCircle2, 
   XCircle, 
   MoreVertical,
-  User,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
+import { getUnitId } from '../../lib/units';
+
+const DEPARTMENTS = [
+  "Basic Medical Sciences", 
+  "Engineering", 
+  "Humanities", 
+  "Law", 
+  "Management Sciences", 
+  "Natural Sciences", 
+  "Social Sciences",
+  "library",
+  "bursary",
+  "student_affairs",
+  "clinic",
+  "security",
+  "sports"
+];
 
 const StaffManagement = () => {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'users'), where('role', '==', 'department_staff'));
@@ -160,8 +179,12 @@ const StaffManagement = () => {
                               <CheckCircle2 className="w-4 h-4" />
                             </button>
                           ) : null}
-                          <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-                            <MoreVertical className="w-4 h-4" />
+                          <button 
+                            onClick={() => setEditingStaff(s)}
+                            className="p-2 text-slate-300 hover:text-primary transition-colors"
+                            title="Edit Department"
+                          >
+                            <Settings className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -172,6 +195,62 @@ const StaffManagement = () => {
             </table>
           </div>
         </div>
+
+        {/* Edit Modal */}
+        {editingStaff && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
+              <h3 className="text-xl font-black text-slate-900 mb-2">Edit Staff Department</h3>
+              <p className="text-sm text-slate-500 mb-6">Assign {editingStaff.full_name} to a specific clearance unit.</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Select Department/Unit</label>
+                  <select 
+                    defaultValue={editingStaff.department}
+                    id="dept-select"
+                    className="w-full px-6 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-primary/20 outline-none transition-all font-bold text-slate-900"
+                  >
+                    {DEPARTMENTS.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => setEditingStaff(null)}
+                    className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      const newDept = document.getElementById('dept-select').value;
+                      setIsSaving(true);
+                      try {
+                        await updateDoc(doc(db, 'users', editingStaff.id), { 
+                          department: newDept,
+                          unit_id: getUnitId(newDept)
+                        });
+                        toast.success('Department updated');
+                        setEditingStaff(null);
+                      } catch (e) {
+                        toast.error('Failed to update');
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }}
+                    disabled={isSaving}
+                    className="flex-1 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20"
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Info Box */}
         <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white flex items-center gap-4">

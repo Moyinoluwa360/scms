@@ -6,6 +6,7 @@ import { auth, db } from '../../lib/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { getUnitId } from '../../lib/units';
 import { toast } from 'sonner';
 import { FACULTIES_AND_DEPARTMENTS, UNIVERSITY_UNITS } from '../../lib/constants';
 import { 
@@ -43,7 +44,18 @@ const staffSchema = z.object({
 const StaffSignup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentSession, setCurrentSession] = useState('2024/2025');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubSettings = onSnapshot(doc(db, 'system_config', 'settings'), (snap) => {
+      if (snap.exists()) {
+        setCurrentSession(snap.data().current_session || '2024/2025');
+      }
+    });
+
+    return () => unsubSettings();
+  }, []);
 
   const {
     register,
@@ -55,11 +67,6 @@ const StaffSignup = () => {
     resolver: zodResolver(staffSchema),
     mode: 'onChange',
   });
-
-  const departments = [
-    "department", "faculty_office", "library", "academic_affairs", 
-    "security", "dsss", "bursary", "registry"
-  ];
 
   const nextStep = async () => {
     let fieldsToValidate = [];
@@ -85,6 +92,7 @@ const StaffSignup = () => {
         phone_number: data.phone_number,
         role: 'department_staff',
         department: data.department,
+        unit_id: getUnitId(data.department),
         profile_photo_url: `https://ui-avatars.com/api/?name=${data.full_name.replace(' ', '+')}&background=2563EB&color=fff`,
         account_status: 'pending',
         created_at: serverTimestamp(),
@@ -99,8 +107,8 @@ const StaffSignup = () => {
         gender: data.gender,
       });
 
-      toast.success('Registration submitted! Awaiting approval.');
-      navigate('/pending-approval');
+      toast.success('Registration successful! Please wait for admin approval.');
+      navigate('/login');
     } catch (error) {
       console.error(error);
       toast.error(error.message || 'Registration failed');
@@ -114,31 +122,33 @@ const StaffSignup = () => {
       case 1:
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-              <input {...register('full_name')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-              {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Staff ID Number</label>
-              <input {...register('staff_number')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-              {errors.staff_number && <p className="text-red-500 text-xs mt-1">{errors.staff_number.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">University Email</label>
-              <input {...register('email')} type="email" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                <input {...register('password')} type="password" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input {...register('full_name')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
-                <input {...register('confirm_password')} type="password" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                {errors.confirm_password && <p className="text-red-500 text-xs mt-1">{errors.confirm_password.message}</p>}
+                <label className="block text-sm font-medium text-slate-700 mb-1">Staff ID Number</label>
+                <input {...register('staff_number')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                {errors.staff_number && <p className="text-red-500 text-xs mt-1">{errors.staff_number.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Official Email</label>
+                <input {...register('email')} type="email" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                  <input {...register('password')} type="password" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
+                  <input {...register('confirm_password')} type="password" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                  {errors.confirm_password && <p className="text-red-500 text-xs mt-1">{errors.confirm_password.message}</p>}
+                </div>
               </div>
             </div>
           </div>
@@ -146,44 +156,48 @@ const StaffSignup = () => {
       case 2:
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Department / Unit</label>
-              <select {...register('department')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white capitalize">
-                <option value="">Select Department or Unit</option>
-                <optgroup label="University Units">
-                  {UNIVERSITY_UNITS.map(unit => (
-                    <option key={unit} value={unit}>{unit.replace('_', ' ')}</option>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Department/Unit</label>
+                <select {...register('department')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white">
+                  <option value="">Select Unit</option>
+                  {FACULTIES_AND_DEPARTMENTS.map(f => (
+                    <optgroup key={f.faculty} label={f.faculty}>
+                      {f.departments.map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </optgroup>
                   ))}
-                </optgroup>
-                <optgroup label="Academic Departments">
-                  {Object.values(FACULTIES_AND_DEPARTMENTS).flat().sort().map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </optgroup>
-              </select>
-              {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Job Title</label>
-              <input {...register('job_title')} placeholder="e.g. Senior Librarian" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-              {errors.job_title && <p className="text-red-500 text-xs mt-1">{errors.job_title.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Office Location</label>
-              <input {...register('office_location')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-              {errors.office_location && <p className="text-red-500 text-xs mt-1">{errors.office_location.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Work Phone Number</label>
-              <input {...register('work_phone')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-              {errors.work_phone && <p className="text-red-500 text-xs mt-1">{errors.work_phone.message}</p>}
+                  <optgroup label="Other Units">
+                    {UNIVERSITY_UNITS.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </optgroup>
+                </select>
+                {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department.message}</p>}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Job Title</label>
+                <input {...register('job_title')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="e.g. Faculty Officer" />
+                {errors.job_title && <p className="text-red-500 text-xs mt-1">{errors.job_title.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Office Location</label>
+                <input {...register('office_location')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                {errors.office_location && <p className="text-red-500 text-xs mt-1">{errors.office_location.message}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Work Phone</label>
+                <input {...register('work_phone')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                {errors.work_phone && <p className="text-red-500 text-xs mt-1">{errors.work_phone.message}</p>}
+              </div>
             </div>
           </div>
         );
       case 3:
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-             <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
                 <input {...register('date_of_birth')} type="date" className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
@@ -193,8 +207,8 @@ const StaffSignup = () => {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
                 <select {...register('gender')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white">
                   <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
                 </select>
                 {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender.message}</p>}
               </div>
@@ -213,7 +227,7 @@ const StaffSignup = () => {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900">Summary</h3>
-                <button onClick={() => setStep(1)} className="text-xs text-primary font-medium">Edit All</button>
+                <button type="button" onClick={() => setStep(1)} className="text-xs text-primary font-medium">Edit All</button>
               </div>
               <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
                 <div>
@@ -249,7 +263,17 @@ const StaffSignup = () => {
   const stepIcons = [User, Briefcase, Building, CheckCircle2];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="mb-8 text-center">
+        <img 
+          src="https://run.edu.ng/wp-content/uploads/2024/09/cropped-colored-logo-300x83.png" 
+          alt="University Logo" 
+          className="h-12 mx-auto mb-4"
+        />
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Staff Registration Portal</h1>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Academic Session: {currentSession}</p>
+      </div>
+
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="bg-white border-b border-slate-100 p-6">
           <div className="flex items-center justify-between max-w-md mx-auto relative">
@@ -277,7 +301,7 @@ const StaffSignup = () => {
             })}
              <div className="absolute top-[20px] left-[40px] right-[40px] h-[2px] bg-slate-100 -z-0">
                <div 
-                className="h-full bg-primary transition-all duration-500" 
+                className="h-full bg-green-500 transition-all duration-500" 
                 style={{ width: `${(step - 1) * 33.33}%` }}
               />
             </div>
@@ -286,8 +310,8 @@ const StaffSignup = () => {
 
         <div className="p-8">
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-slate-900">Staff Registration</h2>
-            <p className="text-slate-500 text-sm">Step {step} of 4: {stepTitles[step-1]}</p>
+            <h2 className="text-xl font-bold text-slate-900">{stepTitles[step-1]} Information</h2>
+            <p className="text-slate-500 text-sm">Step {step} of 4</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)}>

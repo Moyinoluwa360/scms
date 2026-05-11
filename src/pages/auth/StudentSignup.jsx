@@ -456,7 +456,17 @@ const StudentSignup = () => {
   const stepIcons = [User, Mail, BookOpen, Info, CheckCircle2];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="mb-8 text-center">
+        <img 
+          src="https://run.edu.ng/wp-content/uploads/2024/09/cropped-colored-logo-300x83.png" 
+          alt="University Logo" 
+          className="h-12 mx-auto mb-4"
+        />
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Student Registration Portal</h1>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Academic Session: {currentSession}</p>
+      </div>
+
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         {/* Progress Bar */}
         <div className="bg-white border-b border-slate-100 p-6">
@@ -486,7 +496,7 @@ const StudentSignup = () => {
             {/* Connector Lines */}
             <div className="absolute top-[20px] left-[40px] right-[40px] h-[2px] bg-slate-100 -z-0">
               <div
-                className="h-full bg-primary transition-all duration-500"
+                className="h-full bg-green-500 transition-all duration-500"
                 style={{ width: `${(step - 1) * 25}%` }}
               />
             </div>
@@ -495,8 +505,8 @@ const StudentSignup = () => {
 
         <div className="p-8">
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-slate-900">Student Registration</h2>
-            <p className="text-slate-500 text-sm">Step {step} of 5: {stepTitles[step - 1]}</p>
+            <h2 className="text-xl font-bold text-slate-900">{stepTitles[step - 1]} Information</h2>
+            <p className="text-slate-500 text-sm">Step {step} of 5</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)}>

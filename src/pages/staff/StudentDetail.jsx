@@ -3,22 +3,22 @@ import { useParams, useNavigate } from 'react-router-dom';
 import MainLayout from '../../components/shared/MainLayout';
 import useAuthStore from '../../store/authStore';
 import { db } from '../../lib/firebase';
-import { 
-  doc, 
-  getDoc, 
-  writeBatch, 
+import {
+  doc,
+  getDoc,
+  writeBatch,
   serverTimestamp,
   collection,
   query,
   where,
   getDocs
 } from 'firebase/firestore';
-import { 
-  User, 
-  CheckCircle2, 
-  XCircle, 
-  ArrowLeft, 
-  Loader2, 
+import {
+  User,
+  CheckCircle2,
+  XCircle,
+  ArrowLeft,
+  Loader2,
   Info,
   Calendar,
   GraduationCap,
@@ -52,30 +52,32 @@ const StudentDetail = () => {
       try {
         const reqRef = doc(db, 'clearance_requests', requestId);
         const reqSnap = await getDoc(reqRef);
-        
+
         if (reqSnap.exists()) {
           const reqData = reqSnap.data();
           setRequest(reqData);
-          
+
           // Fetch user and student details
           const [userSnap, detailSnap] = await Promise.all([
             getDoc(doc(db, 'users', reqData.student_id)),
             getDoc(doc(db, 'student_details', reqData.student_id))
           ]);
-          
+
           setStudent(userSnap.data());
           setDetails(detailSnap.data());
 
           // Fetch current department's step
-          if (userProfile?.department) {
-            const stepsQ = query(
-              collection(db, `clearance_requests/${requestId}/clearance_steps`),
-              where('department', '==', userProfile.department),
-              where('status', '==', 'pending')
+          // Fetch the pending step for this staff's unit_id
+          if (userProfile?.unit_id) {
+            const stepsSnap = await getDocs(collection(db, `clearance_requests/${requestId}/clearance_steps`));
+
+            const myStep = stepsSnap.docs.find(doc =>
+              doc.data().unit_id === userProfile.unit_id &&
+              doc.data().status === 'pending'
             );
-            const stepsSnap = await getDocs(stepsQ);
-            if (!stepsSnap.empty) {
-              setCurrentStep({ id: stepsSnap.docs[0].id, ...stepsSnap.docs[0].data() });
+
+            if (myStep) {
+              setCurrentStep({ id: myStep.id, ...myStep.data() });
             }
           }
         }
@@ -92,26 +94,25 @@ const StudentDetail = () => {
   const handleClear = async () => {
     setActionLoading(true);
     const batch = writeBatch(db);
-    const dept = userProfile.department;
-    
+
     try {
-      // 1. Find the PENDING step for this staff's department
-      const stepsQ = query(
-        collection(db, `clearance_requests/${requestId}/clearance_steps`),
-        where('department', '==', dept),
-        where('status', '==', 'pending')
+      // 1. Find the PENDING step for this staff's unit_id
+      const stepsSnap = await getDocs(collection(db, `clearance_requests/${requestId}/clearance_steps`));
+
+      const targetStepDoc = stepsSnap.docs.find(doc =>
+        doc.data().unit_id === userProfile.unit_id &&
+        doc.data().status === 'pending'
       );
-      const stepsSnap = await getDocs(stepsQ);
-      
-      if (stepsSnap.empty) {
-        toast.error('No clearance step found for your department');
+
+      if (!targetStepDoc) {
+        toast.error('No pending clearance step found for your unit');
         return;
       }
 
-      const stepDoc = stepsSnap.docs[0];
+      const stepDoc = targetStepDoc;
       const stepRef = stepDoc.ref;
       const stepData = stepDoc.data();
-      
+
       batch.update(stepRef, {
         status: 'cleared',
         cleared_by_id: user.uid,
@@ -129,15 +130,15 @@ const StudentDetail = () => {
           where('step_order', '==', nextOrder)
         );
         const stepsSnap = await getDocs(stepsQ);
-        
+
         if (!stepsSnap.empty) {
           const nextStepRef = stepsSnap.docs[0].ref;
           const nextStepData = stepsSnap.docs[0].data();
-          console.log("Found next step to unlock:", nextStepData.department);
-          
-          batch.update(nextStepRef, { 
+          console.log("Found next step to unlock:", nextStepData.unit_id);
+
+          batch.update(nextStepRef, {
             status: 'pending',
-            unlocked_at: serverTimestamp() 
+            unlocked_at: serverTimestamp()
           });
         } else {
           console.warn(`CRITICAL: Step with order ${nextOrder} not found for request ${requestId}`);
@@ -159,7 +160,7 @@ const StudentDetail = () => {
       batch.set(notifRef, {
         user_id: request.student_id,
         title: 'Clearance Approved',
-        message: `Your clearance for ${dept.replace('_', ' ')} has been approved by ${userProfile.full_name}.`,
+        message: `Your clearance for ${userProfile.department} has been approved by ${userProfile.full_name}.`,
         is_read: false,
         created_at: serverTimestamp()
       });
@@ -172,8 +173,8 @@ const StudentDetail = () => {
         action: 'cleared_student',
         target_student_id: request.student_id,
         target_student_name: request.student_name,
-        department: dept,
-        details: `Approved clearance for ${dept}`,
+        department: userProfile.department,
+        details: `Approved clearance for ${userProfile.department}`,
         created_at: serverTimestamp()
       });
 
@@ -183,17 +184,17 @@ const StudentDetail = () => {
       if (student?.email) {
         try {
           await emailjs.send(
-          import.meta.env.VITE_EMAILJS_SERVICE_ID,
-          import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
-          {
-            user_name: student.full_name,
-            user_email: student.email,
-            status: 'APPROVED',
-            unit_name: dept.replace('_', ' ').toUpperCase(),
-            remarks: 'No further issues reported.'
-          },
-          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-        );
+            import.meta.env.VITE_EMAILJS_SERVICE_ID,
+            import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
+            {
+              user_name: student.full_name,
+              user_email: student.email,
+              status: 'APPROVED',
+              unit_name: userProfile.department.toUpperCase(),
+              remarks: 'No further issues reported.'
+            },
+            import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+          );
         } catch (e) {
           console.error("Email notification failed:", e);
         }
@@ -214,27 +215,28 @@ const StudentDetail = () => {
       toast.error('Please provide a reason for rejection');
       return;
     }
-    
+
     setActionLoading(true);
     const batch = writeBatch(db);
     const dept = userProfile.department;
 
     try {
-      const stepsQ = query(
-        collection(db, `clearance_requests/${requestId}/clearance_steps`),
-        where('department', '==', dept),
-        where('status', '==', 'pending')
+      // 1. Find the PENDING step for this staff's unit_id
+      const stepsSnap = await getDocs(collection(db, `clearance_requests/${requestId}/clearance_steps`));
+
+      const targetStepDoc = stepsSnap.docs.find(doc =>
+        doc.data().unit_id === userProfile.unit_id &&
+        doc.data().status === 'pending'
       );
-      const stepsSnap = await getDocs(stepsQ);
-      
-      if (stepsSnap.empty) {
-        toast.error('No clearance step found for your department');
+
+      if (!targetStepDoc) {
+        toast.error('No pending clearance step found for your unit');
         return;
       }
 
-      const stepRef = stepsSnap.docs[0].ref;
-      const stepData = stepsSnap.docs[0].data();
-      
+      const stepRef = targetStepDoc.ref;
+      const stepData = targetStepDoc.data();
+
       const newRejection = {
         reason: rejectionReason,
         rejected_at: new Date().toISOString(),
@@ -278,17 +280,17 @@ const StudentDetail = () => {
       if (student?.email) {
         try {
           await emailjs.send(
-          import.meta.env.VITE_EMAILJS_SERVICE_ID,
-          import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
-          {
-            user_name: student.full_name,
-            user_email: student.email,
-            status: 'REJECTED',
-            unit_name: dept.replace('_', ' ').toUpperCase(),
-            remarks: rejectionReason
-          },
-          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-        );
+            import.meta.env.VITE_EMAILJS_SERVICE_ID,
+            import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID,
+            {
+              user_name: student.full_name,
+              user_email: student.email,
+              status: 'REJECTED',
+              unit_name: dept.replace('_', ' ').toUpperCase(),
+              remarks: rejectionReason
+            },
+            import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+          );
         } catch (e) {
           console.error("Email notification failed:", e);
         }
@@ -321,17 +323,17 @@ const StudentDetail = () => {
           <button onClick={() => navigate(-1)} className="flex items-center text-slate-500 hover:text-primary transition-colors font-semibold">
             <ArrowLeft className="w-5 h-5 mr-2" /> Back to Queue
           </button>
-          
+
           <div className="flex items-center gap-4">
             {currentStep?.status !== 'cleared' && (
               <>
-                <button 
+                <button
                   onClick={() => setShowRejectModal(true)}
                   className="px-6 py-2 border border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-all flex items-center"
                 >
                   <XCircle className="w-4 h-4 mr-2" /> Reject
                 </button>
-                <button 
+                <button
                   onClick={handleClear}
                   disabled={actionLoading}
                   className="px-8 py-2 bg-green-500 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all flex items-center disabled:opacity-50"
@@ -370,7 +372,7 @@ const StudentDetail = () => {
 
           {currentStep?.rejection_history?.length > 0 && (
             <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl">
-              <button 
+              <button
                 onClick={() => setShowHistory(!showHistory)}
                 className="flex items-center justify-between w-full text-left"
               >
@@ -380,7 +382,7 @@ const StudentDetail = () => {
                 </div>
                 <ChevronRight className={cn("w-5 h-5 text-slate-400 transition-transform", showHistory && "rotate-90")} />
               </button>
-              
+
               {showHistory && (
                 <div className="mt-6 space-y-4">
                   {currentStep.rejection_history.map((rej, idx) => (
@@ -411,7 +413,7 @@ const StudentDetail = () => {
                 <div className="flex-1 min-w-0">
                   <h2 className="text-2xl font-bold text-slate-900 truncate">{student?.full_name}</h2>
                   <p className="text-slate-500 font-medium">{details?.matric_number}</p>
-                  
+
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="flex items-center text-sm text-slate-600">
                       <Mail className="w-4 h-4 mr-2 text-slate-300" /> {student?.email}
@@ -430,7 +432,7 @@ const StudentDetail = () => {
                 <GraduationCap className="w-5 h-5 text-primary" />
                 <h3 className="font-bold text-slate-900">Academic & Personal Record</h3>
               </div>
-              
+
               {[
                 { label: 'Faculty', value: details?.faculty },
                 { label: 'Department', value: details?.department },
@@ -458,8 +460,8 @@ const StudentDetail = () => {
 
           {/* Sidebar Info */}
           <div className="space-y-8">
-             {/* Next of Kin */}
-             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            {/* Next of Kin */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center">
                 <Info className="w-4 h-4 mr-2 text-primary" /> Next of Kin
               </h3>
@@ -501,8 +503,8 @@ const StudentDetail = () => {
             <div className="p-8">
               <h3 className="text-xl font-bold text-slate-900 mb-2">Reject Clearance</h3>
               <p className="text-slate-500 text-sm mb-6">Please provide a clear reason why the student's clearance is being rejected. This will be visible to the student.</p>
-              
-              <textarea 
+
+              <textarea
                 rows={4}
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
@@ -511,13 +513,13 @@ const StudentDetail = () => {
               />
 
               <div className="flex items-center gap-3 mt-8">
-                <button 
+                <button
                   onClick={() => setShowRejectModal(false)}
                   className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-2xl transition-all"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleReject}
                   disabled={actionLoading}
                   className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 disabled:opacity-50 flex items-center justify-center"
