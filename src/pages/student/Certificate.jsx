@@ -30,7 +30,7 @@ const Certificate = () => {
       const q = query(collection(db, 'clearance_requests'), where('student_id', '==', user.uid));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        setClearanceData(snap.docs[0].data());
+        setClearanceData({ id: snap.docs[0].id, ...snap.docs[0].data() });
       }
       setLoading(false);
     };
@@ -43,7 +43,7 @@ const Certificate = () => {
 
   if (loading) return null;
 
-  const isCleared = clearanceData?.status === 'completed';
+  const isCleared = clearanceData?.overall_status === 'completed';
 
   return (
     <MainLayout title="Clearance Certificate">
@@ -119,7 +119,8 @@ const Certificate = () => {
                     <div className="h-px bg-slate-200 mb-4" />
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date of Completion</p>
                     <p className="text-sm font-bold text-slate-900">
-                      {clearanceData?.updated_at && format(clearanceData.updated_at.toDate(), 'PPP')}
+                      {(clearanceData?.completed_at || clearanceData?.updated_at || clearanceData?.initiated_at) && 
+                        format((clearanceData.completed_at || clearanceData.updated_at || clearanceData.initiated_at).toDate(), 'PPP')}
                     </p>
                   </div>
                   <div className="text-center">

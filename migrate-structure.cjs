@@ -8,8 +8,10 @@ admin.initializeApp({
 const db = admin.firestore();
 
 const FACULTIES_AND_DEPARTMENTS = {
+  "Computing and Digital Technologies": [
+    "Computer Science"
+  ],
   "Natural Sciences": [
-    "Computer Science",
     "Industrial Chemistry",
     "Physics with Electronics",
     "Microbiology",

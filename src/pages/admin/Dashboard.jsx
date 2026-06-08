@@ -9,7 +9,8 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
-  getDoc
+  getDoc,
+  setDoc
 } from 'firebase/firestore';
 import {
   Users,
@@ -33,6 +34,36 @@ const AdminDashboard = () => {
     inProgress: 0,
     pendingApproval: 0
   });
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublishAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      toast.error('Please fill in all announcement fields');
+      return;
+    }
+    
+    setIsPublishing(true);
+    try {
+      await setDoc(doc(db, 'system_config', 'announcement'), {
+        title: announcementTitle,
+        message: announcementMessage,
+        published_at: serverTimestamp(),
+      });
+      toast.success('Announcement published successfully!');
+      setShowAnnouncementModal(false);
+      setAnnouncementTitle('');
+      setAnnouncementMessage('');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to publish announcement');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
 
@@ -202,7 +233,10 @@ const AdminDashboard = () => {
                 </button>
                 
                 <div className="pt-4 mt-4 border-t border-white/5">
-                  <button className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-center">
+                  <button 
+                    onClick={() => setShowAnnouncementModal(true)}
+                    className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-center"
+                  >
                     PUBLISH SYSTEM ANNOUNCEMENT
                   </button>
                 </div>
@@ -219,6 +253,60 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Announcement Modal */}
+      {showAnnouncementModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <form onSubmit={handlePublishAnnouncement} className="p-8">
+              <h3 className="text-xl font-black text-slate-900 mb-2">Publish System Announcement</h3>
+              <p className="text-slate-500 text-sm mb-6">
+                This message will be instantly displayed to all students and staff members on their dashboards.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Announcement Title</label>
+                  <input
+                    type="text"
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    placeholder="e.g. Bursary System Maintenance"
+                    className="w-full px-6 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-primary/20 outline-none transition-all font-bold text-slate-900 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notice Message</label>
+                  <textarea
+                    rows={4}
+                    value={announcementMessage}
+                    onChange={(e) => setAnnouncementMessage(e.target.value)}
+                    placeholder="Describe details of the notice..."
+                    className="w-full p-6 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-primary/20 outline-none transition-all font-medium text-slate-800 text-sm resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => setShowAnnouncementModal(false)}
+                  className="flex-1 py-4 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPublishing}
+                  className="flex-1 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Publish Announcement'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };

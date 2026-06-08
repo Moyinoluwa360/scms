@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../components/shared/MainLayout';
 import useAuthStore from '../../store/authStore';
 import { db } from '../../lib/firebase';
@@ -8,7 +9,8 @@ import {
   where, 
   onSnapshot,
   collectionGroup,
-  getCountFromServer
+  getCountFromServer,
+  doc
 } from 'firebase/firestore';
 import { 
   Users, 
@@ -23,6 +25,7 @@ import {
 import { cn } from '../../lib/utils';
 
 const StaffDashboard = () => {
+  const navigate = useNavigate();
   const { userProfile } = useAuthStore();
   const [stats, setStats] = useState({
     pending: 0,
@@ -31,6 +34,20 @@ const StaffDashboard = () => {
     flagged: 0
   });
   const [loading, setLoading] = useState(true);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [announcement, setAnnouncement] = useState({
+    title: 'Administrative Notice',
+    message: 'Please verify all student credentials and financial clearances before providing the departmental stamp of approval. Disputed clearances must be flagged with a detailed rejection note.'
+  });
+
+  useEffect(() => {
+    const unsubAnnouncement = onSnapshot(doc(db, 'system_config', 'announcement'), (snap) => {
+      if (snap.exists()) {
+        setAnnouncement(snap.data());
+      }
+    });
+    return () => unsubAnnouncement();
+  }, []);
 
   useEffect(() => {
     if (!userProfile?.unit_id) return;
@@ -118,7 +135,10 @@ const StaffDashboard = () => {
               <div className="p-6">
                 {stats.pending > 0 ? (
                   <div className="space-y-4">
-                    <div className="p-6 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-slate-50 transition-all">
+                    <div 
+                      onClick={() => navigate('/staff/queue')}
+                      className="p-6 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-slate-50 transition-all"
+                    >
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-black text-sm">
                           {stats.pending}
@@ -128,7 +148,10 @@ const StaffDashboard = () => {
                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Requires immediate departmental attention</p>
                         </div>
                       </div>
-                      <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white hover:border-primary transition-all">
+                      <button 
+                        onClick={() => navigate('/staff/queue')}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white hover:border-primary transition-all"
+                      >
                         Open Queue
                       </button>
                     </div>
@@ -144,18 +167,61 @@ const StaffDashboard = () => {
               </div>
           </div>
 
-          <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl shadow-slate-900/10">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Administrative Notice</p>
-             <p className="text-xs leading-relaxed text-slate-300 font-medium">
-               Please verify all student credentials and financial clearances before providing the departmental stamp of approval. Disputed clearances must be flagged with a detailed rejection note.
-             </p>
-             <div className="h-px bg-white/5 my-6" />
-             <button className="w-full py-4 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
-               STAFF SUPPORT DESK
-             </button>
+          <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl shadow-slate-900/10 flex flex-col justify-between">
+             <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Official Announcement</p>
+                <h4 className="text-sm font-bold truncate mb-2">{announcement.title}</h4>
+                <p className="text-xs leading-relaxed text-slate-300 font-medium break-words">
+                  {announcement.message}
+                </p>
+             </div>
+             <div>
+                <div className="h-px bg-white/5 my-6" />
+                <button 
+                  onClick={() => setShowSupportModal(true)}
+                  className="w-full py-4 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  STAFF SUPPORT DESK
+                </button>
+             </div>
           </div>
         </div>
       </div>
+
+      {/* Support Desk Modal */}
+      {showSupportModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="p-8">
+              <h3 className="text-xl font-black text-slate-900 mb-2">Staff Support Desk</h3>
+              <p className="text-slate-500 text-sm mb-6">
+                Need help with student approvals or system issues? Get in touch with our portal administrators.
+              </p>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Portal Support Email</p>
+                  <p className="text-sm font-bold text-slate-800">Email: <span className="font-medium text-slate-600">portal-support@run.edu.ng</span></p>
+                  <p className="text-sm font-bold text-slate-800">Phone: <span className="font-medium text-slate-600">+234 (0) 805 123 4567</span></p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Office Location</p>
+                  <p className="text-sm font-medium text-slate-600">Information and Communication Technology (ICT) Directorate</p>
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <button
+                  onClick={() => setShowSupportModal(false)}
+                  className="w-full py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Close Support Desk
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,17 +11,39 @@ import {
   Users,
   Settings,
   Settings2,
-  History
+  History,
+  Award
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import useUIStore from '../../store/uiStore';
-import { auth } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { cn } from '../../lib/utils';
 
 const Sidebar = () => {
-  const { userProfile } = useAuthStore();
+  const { user, userProfile } = useAuthStore();
   const { isSidebarOpen, closeSidebar } = useUIStore();
   const location = useLocation();
+  const [isCleared, setIsCleared] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user || userProfile?.role !== 'student') return;
+    
+    const q = query(collection(db, 'clearance_requests'), where('student_id', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const data = snapshot.docs[0].data();
+        setIsCleared(data.overall_status === 'completed');
+      } else {
+        setIsCleared(false);
+      }
+    }, (err) => {
+      console.error("Error fetching clearance status in sidebar:", err);
+    });
+
+    return () => unsubscribe();
+  }, [user, userProfile]);
 
   const getNavItems = () => {
     const role = userProfile?.role;
@@ -31,6 +54,7 @@ const Sidebar = () => {
         { label: 'Clearance Progress', icon: FileCheck, path: '/student/progress' },
         { label: 'Notifications', icon: Bell, path: '/student/notifications' },
         { label: 'Profile', icon: User, path: '/student/profile' },
+        { label: 'Certificate', icon: Award, path: '/student/certificate', status: isCleared ? 'Cleared' : 'Locked' },
       ];
     }
     
@@ -105,15 +129,32 @@ const Sidebar = () => {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
+                    "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200",
                     isActive 
                       ? "bg-primary text-white shadow-md shadow-primary/20" 
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                   )}
                   onClick={() => window.innerWidth < 1024 && closeSidebar()}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <Icon className="w-5 h-5" />
+                      {item.showDot && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                      )}
+                    </div>
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  {item.status && (
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider",
+                      item.status === 'Cleared' 
+                        ? (isActive ? "bg-white text-green-600" : "bg-green-50 text-green-600")
+                        : (isActive ? "bg-white/10 text-white" : "bg-slate-100 text-slate-400")
+                    )}>
+                      {item.status}
+                    </span>
+                  )}
                 </Link>
               );
             })}

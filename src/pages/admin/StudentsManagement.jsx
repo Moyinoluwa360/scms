@@ -57,6 +57,38 @@ const StudentsManagement = () => {
     s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleExportCSV = () => {
+    if (filteredStudents.length === 0) {
+      toast.error('No students to export');
+      return;
+    }
+    const headers = ['UID', 'Full Name', 'Email', 'Phone Number', 'Account Status'];
+    const rows = filteredStudents.map(s => [
+      s.id,
+      s.full_name,
+      s.email,
+      s.phone_number || '',
+      s.account_status
+    ]);
+    
+    // Construct CSV file string
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'student_records.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('CSV exported successfully');
+  };
+
   return (
     <MainLayout title="Student Records">
       <div className="max-w-6xl mx-auto">
@@ -72,7 +104,10 @@ const StudentsManagement = () => {
             />
           </div>
           <div className="flex items-center gap-4">
-             <button className="px-4 py-2 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/10 hover:bg-primary/90 transition-all flex items-center text-sm">
+             <button 
+               onClick={handleExportCSV}
+               className="px-4 py-2 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/10 hover:bg-primary/90 transition-all flex items-center text-sm"
+             >
                 <FileText className="w-4 h-4 mr-2" /> Export CSV
              </button>
           </div>

@@ -63,3 +63,41 @@
 .fade-in {
   animation: in 0.3s ease-out;
 }
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  header, 
+  aside, 
+  button, 
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .max-w-4xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Reset container/layout styles for print page */
+  div[class*="pl-64"], 
+  div[class*="lg:pl-64"],
+  .min-h-screen {
+    padding-left: 0 !important;
+    min-height: auto !important;
+  }
+}

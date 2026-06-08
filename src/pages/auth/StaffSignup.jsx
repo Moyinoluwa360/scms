@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -161,9 +161,9 @@ const StaffSignup = () => {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Department/Unit</label>
                 <select {...register('department')} className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white">
                   <option value="">Select Unit</option>
-                  {FACULTIES_AND_DEPARTMENTS.map(f => (
-                    <optgroup key={f.faculty} label={f.faculty}>
-                      {f.departments.map(d => (
+                  {Object.entries(FACULTIES_AND_DEPARTMENTS).map(([faculty, depts]) => (
+                    <optgroup key={faculty} label={faculty}>
+                      {depts.map(d => (
                         <option key={d} value={d}>{d}</option>
                       ))}
                     </optgroup>

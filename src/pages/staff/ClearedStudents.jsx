@@ -7,7 +7,8 @@ import {
   query, 
   where, 
   onSnapshot,
-  orderBy 
+  orderBy,
+  getDoc
 } from 'firebase/firestore';
 import { 
   CheckCircle2, 

@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import { auth } from '../../lib/firebase';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
   const { user, userProfile, loading } = useAuthStore();

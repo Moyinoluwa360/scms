@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../components/shared/MainLayout';
 import useAuthStore from '../../store/authStore';
 import { db } from '../../lib/firebase';
@@ -29,6 +30,7 @@ import { getUnitId } from '../../lib/units';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { user, userProfile } = useAuthStore();
   const [request, setRequest] = useState(null);
   const [steps, setSteps] = useState([]);
@@ -38,6 +40,10 @@ const Dashboard = () => {
   const [reReviewNote, setReReviewNote] = useState('');
   const [submittingReReview, setSubmittingReReview] = useState(false);
   const [currentSession, setCurrentSession] = useState('2024/2025');
+  const [announcement, setAnnouncement] = useState({
+    title: 'Portal Notice',
+    message: 'Welcome to the SCMS. Please track your department-level clearance steps below.'
+  });
 
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'system_config', 'settings'), (snap) => {
@@ -46,7 +52,16 @@ const Dashboard = () => {
       }
     });
 
-    return () => unsubSettings();
+    const unsubAnnouncement = onSnapshot(doc(db, 'system_config', 'announcement'), (snap) => {
+      if (snap.exists()) {
+        setAnnouncement(snap.data());
+      }
+    });
+
+    return () => {
+      unsubSettings();
+      unsubAnnouncement();
+    };
   }, []);
 
   useEffect(() => {
@@ -302,32 +317,55 @@ const Dashboard = () => {
 
           {/* Side Info */}
           <div className="space-y-6">
-             <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl shadow-slate-900/10">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Official Notice</p>
-                <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
-                      <Bell className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold">Bursary Unit Update</p>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">Please ensure all fees are settled before proceeding to Step 7.</p>
-                    </div>
-                  </div>
-                  <button className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                    View All Notifications
-                  </button>
-                </div>
-             </div>
+              <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl shadow-slate-900/10">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Official Notice</p>
+                 <div className="space-y-4">
+                   <div className="flex gap-4">
+                     <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                       <Bell className="w-5 h-5 text-amber-400" />
+                     </div>
+                     <div className="space-y-1 flex-1 min-w-0">
+                       <p className="text-xs font-bold truncate">{announcement.title}</p>
+                       <p className="text-[10px] text-slate-400 leading-relaxed break-words">{announcement.message}</p>
+                     </div>
+                   </div>
+                   <button 
+                     onClick={() => navigate('/student/notifications')}
+                     className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                   >
+                     View All Notifications
+                   </button>
+                 </div>
+              </div>
 
-             <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-center gap-4 group cursor-pointer hover:bg-slate-50 transition-colors">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-white transition-colors">
-                  <FileCheck className="w-6 h-6 text-slate-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Certificate Preview</p>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">Available after step 8</p>
-                </div>
+             <div
+               onClick={() => navigate('/student/certificate')}
+               className={`p-6 rounded-3xl border shadow-sm flex items-center justify-between gap-4 group cursor-pointer transition-all duration-200 ${
+                 request?.overall_status === 'completed'
+                   ? 'bg-green-50 border-green-200 hover:bg-green-100'
+                   : 'bg-white border-slate-200/60 hover:bg-slate-50'
+               }`}
+             >
+               <div className="flex items-center gap-4">
+                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                   request?.overall_status === 'completed'
+                     ? 'bg-green-100 group-hover:bg-green-200'
+                     : 'bg-slate-50 group-hover:bg-white'
+                 }`}>
+                   <FileCheck className={`w-6 h-6 ${request?.overall_status === 'completed' ? 'text-green-600' : 'text-slate-400'}`} />
+                 </div>
+                 <div>
+                   <p className="text-xs font-bold text-slate-900">Clearance Certificate</p>
+                   <p className={`text-[10px] uppercase font-black tracking-tighter ${
+                     request?.overall_status === 'completed' ? 'text-green-600' : 'text-slate-400'
+                   }`}>
+                     {request?.overall_status === 'completed' ? '✓ Ready to Download' : 'Available when fully cleared'}
+                   </p>
+                 </div>
+               </div>
+               <ArrowRight className={`w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1 ${
+                 request?.overall_status === 'completed' ? 'text-green-500' : 'text-slate-300'
+               }`} />
              </div>
           </div>
         </div>

@@ -25,6 +25,7 @@ import { getUnitId } from '../../lib/units';
 
 const DEPARTMENTS = [
   "Basic Medical Sciences", 
+  "Computing and Digital Technologies",
   "Engineering", 
   "Humanities", 
   "Law", 
